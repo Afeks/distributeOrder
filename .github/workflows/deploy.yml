@@ -45,6 +45,12 @@ jobs:
       - name: Deploy to Firebase
         env:
           GOOGLE_APPLICATION_CREDENTIALS: $HOME/firebase-service-account.json
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         run: |
-          firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }}
+          if [ -z "$FIREBASE_PROJECT_ID" ]; then
+            echo "Error: FIREBASE_PROJECT_ID secret is not set"
+            exit 1
+          fi
+          echo "Deploying to project: $FIREBASE_PROJECT_ID"
+          firebase deploy --only functions --project "$FIREBASE_PROJECT_ID"
 
