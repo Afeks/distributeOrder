@@ -216,15 +216,19 @@ export const onPurchaseCreated = functions
 
       // Lade Items aus der Purchase Items Sub-Collection
       const items = await loadPurchaseItems(eventId, purchaseId);
+      console.log(`Loaded ${items.length} items from purchase ${purchaseId}`);
       if (items.length === 0) {
         console.error(`No items found for purchase ${purchaseId}`);
         return null;
       }
+      console.log(`Items to distribute: ${items.map(i => i.id).join(', ')}`);
 
       // Lade DistributionMode aus dem Event
       const distributionMode = await getDistributionMode(eventId);
+      console.log(`DistributionMode: ${distributionMode}`);
 
       // Rufe distributeOrderWithoutPurchase auf (Purchase existiert bereits)
+      console.log(`Starting distribution...`);
       const result = await distributeOrderWithoutPurchase(
         purchaseId,
         eventId,
@@ -233,6 +237,8 @@ export const onPurchaseCreated = functions
         distributionMode,
         purchaseData.note
       );
+
+      console.log(`Distribution result - success: ${result.success}, distributedPurchases: ${result.distributedPurchases.length}, error: ${result.error || 'none'}`);
 
       if (result.success) {
         // Markiere Purchase als verteilt

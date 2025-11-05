@@ -36,12 +36,16 @@ export async function countOpenOrdersForStore(
 export async function getPointsOfSaleFromEvent(
   eventId: string
 ): Promise<PointOfSale[]> {
+  console.log(`Loading Points of Sale for event ${eventId}...`);
+  
   const posSnapshot = await admin
     .firestore()
     .collection(COLLECTION_EVENTS)
     .doc(eventId)
     .collection(COLLECTION_POS)
     .get();
+
+  console.log(`Found ${posSnapshot.size} Points of Sale documents`);
 
   const pointsOfSale: PointOfSale[] = [];
 
@@ -58,6 +62,15 @@ export async function getPointsOfSaleFromEvent(
       .doc(posId)
       .collection(COLLECTION_ITEMS)
       .get();
+
+    console.log(`Store ${posId} (${posData.name || 'no name'}): ${itemsSnapshot.size} available items`);
+    if (itemsSnapshot.size > 0) {
+      const itemIds = itemsSnapshot.docs.map(doc => {
+        const itemData = doc.data();
+        return itemData.id || doc.id;
+      }).join(', ');
+      console.log(`  Item IDs: ${itemIds}`);
+    }
 
     const availableItems: Item[] = itemsSnapshot.docs.map((itemDoc) => {
       const itemData = itemDoc.data();
@@ -84,6 +97,7 @@ export async function getPointsOfSaleFromEvent(
     });
   }
 
+  console.log(`Returned ${pointsOfSale.length} Points of Sale with items`);
   return pointsOfSale;
 }
 

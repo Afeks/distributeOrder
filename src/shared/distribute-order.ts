@@ -47,13 +47,19 @@ async function distributeItems(
     // Map, um Items pro Store zu gruppieren
     const storeOrdersMap: Map<PointOfSale, Item[]> = new Map();
 
+    console.log(`Starting distribution of ${itemList.length} items to ${pointsOfSale.length} stores`);
+
     for (const item of itemList) {
+      console.log(`Processing item: ${item.id} (${item.name || 'no name'})`);
+      
       // Finde Stores, die dieses Item verfügbar haben
       const availableStores = pointsOfSale.filter((store) => {
         return store.availableItems.some(
           (availableItem) => availableItem.id === item.id
         );
       });
+
+      console.log(`Item ${item.id} available in ${availableStores.length} stores`);
 
       if (availableStores.length > 0) {
         // Erstelle eine Liste, die Stores und ihre offenen Bestellungen enthält
@@ -74,17 +80,23 @@ async function distributeItems(
 
         // Wähle den Store mit der geringsten Auslastung (der erste Store in der Liste)
         const leastBusyStore = storesWithOpenOrders[0].store;
+        console.log(`Selected store for item ${item.id}: ${leastBusyStore.name} (${leastBusyStore.id}) with ${storesWithOpenOrders[0].count} open orders`);
 
         // Füge das Item zum Store in der Map hinzu
         if (!storeOrdersMap.has(leastBusyStore)) {
           storeOrdersMap.set(leastBusyStore, []);
         }
         storeOrdersMap.get(leastBusyStore)!.push(item);
+      } else {
+        console.warn(`WARNING: Item ${item.id} (${item.name || 'no name'}) is not available in any store!`);
       }
     }
 
+    console.log(`Created ${storeOrdersMap.size} store orders`);
+
     // Für jeden Store eine Bestellung erstellen, die alle Items zusammenfasst
     for (const [store, itemsForStore] of storeOrdersMap.entries()) {
+      console.log(`Creating order for store ${store.name} with ${itemsForStore.length} items`);
       // Erstelle eine Bestellung mit den Items für den Store und der ursprünglichen Bestell-ID
       await createDistributedPurchaseForPointOfSale(
         itemsForStore,
@@ -101,7 +113,10 @@ async function distributeItems(
         orderId: originalOrderId,
         itemsCount: itemsForStore.length,
       });
+      console.log(`Created distributed purchase for store ${store.name}`);
     }
+
+    console.log(`Distribution completed. Total distributed purchases: ${distributedPurchases.length}`);
   } else if (distributionMode === DistributionMode.GROUPED) {
     // TODO: Implementiere den grouped-Modus wenn nötig
     // Siehe auskommentierte Logik in order_page_controller.dart
@@ -199,9 +214,12 @@ export async function distributeOrderWithoutPurchase(
     }
 
     // Hole alle Points of Sale für das Event
+    console.log(`Loading Points of Sale for event ${eventId}...`);
     const eventStores = await getPointsOfSaleFromEvent(eventId);
+    console.log(`Found ${eventStores.length} Points of Sale`);
 
     if (eventStores.length === 0) {
+      console.error(`No Points of Sale found for event ${eventId}`);
       return {
         success: false,
         purchaseId: purchaseId,
@@ -210,7 +228,19 @@ export async function distributeOrderWithoutPurchase(
       };
     }
 
+    // Logge verfügbare Items pro Store
+    eventStores.forEach(store => {
+      console.log(`Store: ${store.name} (${store.id}), Available items: ${store.availableItems.length}`);
+      if (store.availableItems.length > 0) {
+        console.log(`  Item IDs: ${store.availableItems.map(i => i.id).join(', ')}`);
+      }
+    });
+
+    // Logge Items die verteilt werden sollen
+    console.log(`Items to distribute: ${items.map(i => i.id).join(', ')}`);
+
     // Verteile die Items mit der ursprünglichen Bestell-ID
+    console.log(`Starting item distribution...`);
     const distributedPurchases = await distributeItems(
       items,
       eventStores,
