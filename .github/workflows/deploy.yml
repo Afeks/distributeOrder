@@ -31,17 +31,21 @@ jobs:
           service_account_key: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           project_id: ${{ secrets.FIREBASE_PROJECT_ID }}
       
+      - name: Setup Firebase Service Account
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > $HOME/firebase-service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json" >> $GITHUB_ENV
+      
       - name: Build TypeScript
         run: npm run build
       
-      - name: Setup Firebase Project
+      - name: Deploy to Firebase
         env:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          GOOGLE_APPLICATION_CREDENTIALS: $HOME/firebase-service-account.json
         run: |
-          echo "{\"projects\":{\"default\":\"$FIREBASE_PROJECT_ID\"}}" > .firebaserc
-          firebase use default
-      
-      - name: Deploy to Firebase
-        run: |
-          firebase deploy --only functions
+          firebase deploy --only functions --project $FIREBASE_PROJECT_ID
 
