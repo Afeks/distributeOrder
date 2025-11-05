@@ -8,20 +8,19 @@ Dieses Projekt verwendet GitHub Actions für automatisches Deployment. Bei jedem
 
 ### Setup für automatisches Deployment
 
-1. Generiere ein Firebase Token:
-   ```bash
-   firebase login:ci
-   # Dies gibt dir ein Token, das du für GitHub Actions verwenden kannst
-   ```
+1. Erstelle ein Firebase Service Account:
+   - Gehe zu Firebase Console > Project Settings > Service Accounts
+   - Klicke auf "Generate new private key"
+   - Lade die JSON-Datei herunter
+   - **Wichtig**: Kopiere den kompletten Inhalt der JSON-Datei (als String)
 
 2. Füge GitHub Secrets hinzu:
    - Gehe zu deinem GitHub Repository > Settings > Secrets and variables > Actions
    - Füge folgende Secrets hinzu:
-     - `FIREBASE_TOKEN`: Das Token, das du mit `firebase login:ci` erhalten hast
+     - `FIREBASE_SERVICE_ACCOUNT`: Der komplette Inhalt der Service Account JSON-Datei (als String einfügen)
      - `FIREBASE_PROJECT_ID`: Deine Firebase Projekt-ID (z.B. "ordercat")
-     - `FIREBASE_SERVICE_ACCOUNT`: (Optional) Der komplette Inhalt der Service Account JSON-Datei als String
-       - Falls du die Service Account Methode bevorzugst, kannst du die Service Account JSON-Datei herunterladen:
-       - Firebase Console > Project Settings > Service Accounts > "Generate new private key"
+   
+   **Hinweis**: Der Service Account benötigt die Berechtigung "Firebase Admin SDK Administrator Service Agent" oder "Editor" Rolle, um Functions deployen zu können.
 
 ## Funktionen
 
