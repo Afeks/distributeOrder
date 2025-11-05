@@ -144,10 +144,16 @@ Die Function:
 distributeOrder/
 ├── src/
 │   ├── index.ts                      # Haupt-Entry-Point, exportiert alle Functions
-│   ├── types.ts                      # TypeScript Typen und Interfaces
-│   ├── database-helpers.ts           # Helper-Funktionen für Firestore-Zugriffe
-│   ├── distribute-order.ts          # Hauptlogik für die Verteilung
-│   └── trigger-order-distribution.ts # Firestore Trigger für automatische Verteilung
+│   ├── functions/
+│   │   ├── distributeOrder/          # distributeOrderFunction
+│   │   │   └── index.ts
+│   │   ├── purchaseTrigger/          # onPurchaseCreated Trigger
+│   │   │   └── index.ts
+│   │   └── [weitere Funktionen]      # Hier können weitere Functions hinzugefügt werden
+│   └── shared/                       # Geteilte Code-Basis
+│       ├── types.ts                  # TypeScript Typen und Interfaces
+│       ├── database-helpers.ts      # Helper-Funktionen für Firestore-Zugriffe
+│       └── distribute-order.ts       # Hauptlogik für die Verteilung
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml                # GitHub Actions Workflow für automatisches Deployment
@@ -157,6 +163,8 @@ distributeOrder/
 ├── tsconfig.json
 └── README.md
 ```
+
+Jede Function hat ihren eigenen Ordner unter `src/functions/`, was es einfach macht, neue Functions hinzuzufügen. Geteilter Code befindet sich in `src/shared/`.
 
 ## Abhängigkeiten
 

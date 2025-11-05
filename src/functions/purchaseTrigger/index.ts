@@ -5,12 +5,12 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { distributeOrderWithoutPurchase } from './distribute-order';
+import { distributeOrderWithoutPurchase } from '../../shared/distribute-order';
 import {
   DistributionMode,
   Item,
   ServingPoint,
-} from './types';
+} from '../../shared/types';
 
 const COLLECTION_EVENTS = 'Events';
 const COLLECTION_ORDERS = 'Orders';
