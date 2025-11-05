@@ -34,9 +34,13 @@ jobs:
       - name: Build TypeScript
         run: npm run build
       
-      - name: Deploy to Firebase
+      - name: Setup Firebase Project
         env:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
         run: |
-          firebase deploy --only functions --project $FIREBASE_PROJECT_ID
+          echo "{\"projects\":{\"default\":\"$FIREBASE_PROJECT_ID\"}}" > .firebaserc
+      
+      - name: Deploy to Firebase
+        run: |
+          firebase deploy --only functions
 
