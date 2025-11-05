@@ -38,6 +38,9 @@ jobs:
           echo "$FIREBASE_SERVICE_ACCOUNT" > $HOME/firebase-service-account.json
           export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json" >> $GITHUB_ENV
+          # Setze Application Default Credentials für Firebase
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/firebase-service-account.json
+          chmod 600 $HOME/firebase-service-account.json
       
       - name: Build TypeScript
         run: npm run build
@@ -52,5 +55,7 @@ jobs:
             exit 1
           fi
           echo "Deploying to project: $FIREBASE_PROJECT_ID"
-          firebase deploy --only functions --project "$FIREBASE_PROJECT_ID"
+          # Generiere ein Access Token aus der Service Account
+          export FIREBASE_TOKEN=$(gcloud auth print-access-token)
+          firebase deploy --only functions --project "$FIREBASE_PROJECT_ID" --token "$FIREBASE_TOKEN"
 
