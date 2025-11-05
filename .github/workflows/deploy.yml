@@ -33,6 +33,7 @@ jobs:
           export_default_credentials: true
       
       - name: Setup Authentication
+        id: setup-auth
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
@@ -53,6 +54,8 @@ jobs:
               echo "Error: Invalid JSON in service account file"
               exit 1
             fi
+            # Setze GOOGLE_APPLICATION_CREDENTIALS für nachfolgende Schritte
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$SA_FILE" >> $GITHUB_ENV
           else
             echo "Error: Neither GOOGLE_APPLICATION_CREDENTIALS nor FIREBASE_SERVICE_ACCOUNT is available"
             exit 1
@@ -72,18 +75,18 @@ jobs:
       - name: Deploy to Firebase
         env:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
         run: |
           if [ -z "$FIREBASE_PROJECT_ID" ]; then
             echo "Error: FIREBASE_PROJECT_ID secret is not set"
             exit 1
           fi
           echo "Deploying to project: $FIREBASE_PROJECT_ID"
-          # Generiere ein Access Token für Firebase
-          FIREBASE_TOKEN=$(gcloud auth print-access-token)
-          if [ -z "$FIREBASE_TOKEN" ]; then
-            echo "Error: Failed to generate Firebase token"
-            exit 1
+          # Verwende GOOGLE_APPLICATION_CREDENTIALS statt veralteter Token-Methode
+          # Falls nicht gesetzt, verwende die Service Account-Datei aus dem vorherigen Schritt
+          if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
+            export GOOGLE_APPLICATION_CREDENTIALS="$HOME/service-account.json"
           fi
-          echo "Token generated successfully"
-          firebase deploy --only functions --project "$FIREBASE_PROJECT_ID" --token "$FIREBASE_TOKEN"
+          echo "Using credentials: $GOOGLE_APPLICATION_CREDENTIALS"
+          firebase deploy --only functions --project "$FIREBASE_PROJECT_ID"
 

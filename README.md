@@ -8,7 +8,6 @@ Dieses Projekt verwendet GitHub Actions für automatisches Deployment. Bei jedem
 
 ### Setup für automatisches Deployment
 
-
 1. Erstelle ein Firebase Service Account:
    - Gehe zu Firebase Console > Project Settings > Service Accounts
    - Klicke auf "Generate new private key"
@@ -31,7 +30,17 @@ Dieses Projekt verwendet GitHub Actions für automatisches Deployment. Bei jedem
          ```
      - `FIREBASE_PROJECT_ID`: Deine Firebase Projekt-ID (z.B. "ordercat")
    
-   **Hinweis**: Der Service Account benötigt die Berechtigung "Firebase Admin SDK Administrator Service Agent" oder "Editor" Rolle, um Functions deployen zu können.
+   **Wichtig - Benötigte Berechtigungen**: Der Service Account benötigt folgende Rollen:
+   - **Firebase Admin SDK Administrator Service Agent** oder **Editor** Rolle
+   - **Service Account User** (iam.serviceAccounts.ActAs) - Diese Rolle ist erforderlich, damit der Service Account die App Engine Service Accounts verwenden kann
+   
+   Um die "Service Account User" Rolle hinzuzufügen:
+   1. Gehe zu [Google Cloud Console IAM](https://console.cloud.google.com/iam-admin/iam)
+   2. Wähle dein Projekt aus
+   3. Finde deinen Service Account in der Liste
+   4. Klicke auf "Bearbeiten" (Stift-Symbol)
+   5. Füge die Rolle "Service Account User" hinzu
+   6. Speichere die Änderungen
    
    **Troubleshooting**: Falls das Deployment fehlschlägt mit "Invalid JSON format", stelle sicher, dass das `FIREBASE_SERVICE_ACCOUNT` Secret den kompletten JSON-Inhalt ohne zusätzliche Escape-Zeichen enthält.
 
