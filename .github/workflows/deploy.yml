@@ -32,6 +32,20 @@ jobs:
           project_id: ${{ secrets.FIREBASE_PROJECT_ID }}
           export_default_credentials: true
       
+      - name: Setup Firebase Authentication
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          # Erstelle Service Account JSON-Datei
+          echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/service-account.json
+          chmod 600 /tmp/service-account.json
+          # Aktiviere die Service Account-Authentifizierung
+          gcloud auth activate-service-account --key-file=/tmp/service-account.json
+          # Setze das Projekt
+          gcloud config set project ${{ secrets.FIREBASE_PROJECT_ID }}
+          # Validiere die Authentifizierung
+          gcloud auth list
+      
       - name: Build TypeScript
         run: npm run build
       
