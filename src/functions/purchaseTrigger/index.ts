@@ -200,15 +200,15 @@ export const onPurchaseCreated = functions
       }
 
       // Lade ServingPoint
-      const tableId = purchaseData.tableId;
-      if (!tableId) {
-        console.error(`No tableId found for purchase ${purchaseId}`);
+      const servingPointId = purchaseData.servingPointId;
+      if (!servingPointId) {
+        console.error(`No servingPointId found for purchase ${purchaseId}`);
         return null;
       }
 
-      const servingPoint = await getServingPointById(eventId, tableId);
+      const servingPoint = await getServingPointById(eventId, servingPointId);
       if (!servingPoint) {
-        console.error(`ServingPoint ${tableId} not found for event ${eventId}`);
+        console.error(`ServingPoint ${servingPointId} not found for event ${eventId}`);
         return null;
       }
 

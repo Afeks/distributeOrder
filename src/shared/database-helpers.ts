@@ -172,7 +172,7 @@ export async function createPurchase(
 
   // Erstelle das Purchase-Dokument
   batch.set(purchaseRef, {
-    tableId: purchase.servingPoint?.id || null,
+    servingPointId: purchase.servingPoint?.id || null,
     orderPlaced: purchase.orderPlaced
       ? admin.firestore.Timestamp.fromDate(purchase.orderPlaced)
       : admin.firestore.FieldValue.serverTimestamp(),

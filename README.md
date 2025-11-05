@@ -128,7 +128,7 @@ Die Function `onPurchaseCreated` wird automatisch ausgelöst, wenn:
 
 Die Function:
 1. Lädt die Bestelldaten aus Firestore
-2. Lädt das ServingPoint (Tisch) basierend auf `tableId`
+2. Lädt das ServingPoint basierend auf `servingPointId`
 3. Lädt alle Items aus der `Items` Sub-Collection
 4. Lädt den `distributionMode` aus dem Event
 5. Verteilt die Bestellung automatisch auf die Points of Sale
