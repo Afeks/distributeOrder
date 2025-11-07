@@ -30,10 +30,18 @@ type ItemEntry = {
 type ItemWithQuantityField = Item & {
   quantity?: number;
   entries?: ItemEntry[];
+  __calculatedQuantity?: number;
 };
 
 function getItemQuantity(item: Item): number {
   const itemWithQuantity = item as ItemWithQuantityField;
+
+  if (
+    typeof itemWithQuantity.__calculatedQuantity === 'number' &&
+    Number.isFinite(itemWithQuantity.__calculatedQuantity)
+  ) {
+    return Math.max(0, Math.floor(itemWithQuantity.__calculatedQuantity));
+  }
 
   let entriesQuantity: number | undefined;
   if (Array.isArray(itemWithQuantity.entries)) {
@@ -111,7 +119,7 @@ async function distributeItems(
       const normalizedItem: ItemWithQuantityField = {
         ...item,
         count: quantity,
-        quantity: quantity,
+        __calculatedQuantity: quantity,
       };
       
       // Finde Stores, die dieses Item verfügbar haben

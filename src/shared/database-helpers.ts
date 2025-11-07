@@ -12,10 +12,18 @@ type ItemEntry = {
 type ItemWithQuantityField = Item & {
   quantity?: number;
   entries?: ItemEntry[];
+  __calculatedQuantity?: number;
 };
 
 function getItemQuantity(item: Item): number {
   const itemWithQuantity = item as ItemWithQuantityField;
+
+  if (
+    typeof itemWithQuantity.__calculatedQuantity === 'number' &&
+    Number.isFinite(itemWithQuantity.__calculatedQuantity)
+  ) {
+    return Math.max(0, Math.floor(itemWithQuantity.__calculatedQuantity));
+  }
 
   let entriesQuantity: number | undefined;
   if (Array.isArray(itemWithQuantity.entries)) {
@@ -183,11 +191,13 @@ export async function createDistributedPurchaseForPointOfSale(
 
     if (existing) {
       existing.count += quantity;
+      existing.item.count = existing.count;
+      existing.item.__calculatedQuantity = existing.count;
     } else {
       const normalizedItem: ItemWithQuantityField = {
         ...item,
         count: quantity,
-        quantity: quantity,
+        __calculatedQuantity: quantity,
       };
       groupedItems.set(key, { item: normalizedItem, count: quantity });
     }
@@ -202,7 +212,6 @@ export async function createDistributedPurchaseForPointOfSale(
       name: item.name || null,
       price: item.price || null,
       count: count,
-      quantity: count,
       category: item.category || null,
       categoryName: item.categoryName || null,
       selectedExtras: item.selectedExtras || [],
