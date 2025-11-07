@@ -114,8 +114,12 @@ async function loadPurchaseItems(
   for (const itemDoc of itemsSnapshot.docs) {
     const itemData = itemDoc.data();
     const itemId = itemData.itemId || itemDoc.id;
-    const selectedExtras = itemData.selectedExtras || [];
-    const excludedIngredients = itemData.excludedIngredients || [];
+    const baseSelectedExtras = Array.isArray(itemData.selectedExtras)
+      ? itemData.selectedExtras
+      : [];
+    const baseExcludedIngredients = Array.isArray(itemData.excludedIngredients)
+      ? itemData.excludedIngredients
+      : [];
 
     const rawQuantity = itemData.quantity ?? itemData.count;
     const entries = Array.isArray(itemData.entries) ? itemData.entries : [];
@@ -142,33 +146,87 @@ async function loadPurchaseItems(
       quantity = 1;
     }
 
-    // Lade vollständige Item-Details aus der globalen Items-Collection
+    const pushItemInstances = (
+      quantityToCreate: number,
+      selectedExtras: string[],
+      excludedIngredients: string[],
+      itemDetailsOverride?: Item
+    ) => {
+      const extras = selectedExtras.slice();
+      const excluded = excludedIngredients.slice();
+
+      if (itemDetailsOverride) {
+        for (let i = 0; i < quantityToCreate; i++) {
+          items.push({
+            ...itemDetailsOverride,
+            id: itemId,
+            count: 1,
+            selectedExtras: extras,
+            excludedIngredients: excluded,
+          });
+        }
+      } else {
+        for (let i = 0; i < quantityToCreate; i++) {
+          items.push({
+            id: itemId,
+            name: itemData.name || 'Unknown Item',
+            price: itemData.price || 0,
+            count: 1,
+            category: itemData.category,
+            categoryName: itemData.categoryName,
+            selectedExtras: extras,
+            excludedIngredients: excluded,
+          });
+        }
+      }
+    };
+
     const itemDetails = await getItemDetails(eventId, itemId);
 
-    if (itemDetails) {
-      // Erstelle ein Item für jede Quantity mit Extras/Ingredients
-      for (let i = 0; i < quantity; i++) {
-        items.push({
-          ...itemDetails,
-          id: itemId,
-          count: 1,
-          selectedExtras: selectedExtras,
-          excludedIngredients: excludedIngredients,
-        });
-      }
-    } else {
-      // Fallback falls Item-Details nicht gefunden werden
+    if (!itemDetails) {
       console.warn(`Item details not found for itemId: ${itemId}`);
-      items.push({
-        id: itemId,
-        name: itemData.name || 'Unknown Item',
-        price: itemData.price || 0,
-        count: quantity,
-        category: itemData.category,
-        categoryName: itemData.categoryName,
-        selectedExtras: selectedExtras,
-        excludedIngredients: excludedIngredients,
-      });
+    }
+
+    let generatedFromEntries = 0;
+    if (entries.length > 0) {
+      for (const entry of entries) {
+        const entryQuantityRaw = entry?.quantity ?? 1;
+        const entryQuantityValue = Number(entryQuantityRaw);
+        const entryQuantity = Number.isFinite(entryQuantityValue) && entryQuantityValue > 0
+          ? Math.floor(entryQuantityValue)
+          : 0;
+
+        if (entryQuantity <= 0) {
+          continue;
+        }
+
+        const entrySelectedExtras = Array.isArray(entry?.selectedExtras)
+          ? entry.selectedExtras
+          : baseSelectedExtras;
+        const entryExcludedIngredients = Array.isArray(entry?.excludedIngredients)
+          ? entry.excludedIngredients
+          : baseExcludedIngredients;
+
+        pushItemInstances(
+          entryQuantity,
+          entrySelectedExtras,
+          entryExcludedIngredients,
+          itemDetails || undefined
+        );
+
+        generatedFromEntries += entryQuantity;
+      }
+    }
+
+    const remainingQuantity = Math.max(quantity - generatedFromEntries, 0);
+
+    if (remainingQuantity > 0) {
+      pushItemInstances(
+        remainingQuantity,
+        baseSelectedExtras,
+        baseExcludedIngredients,
+        itemDetails || undefined
+      );
     }
   }
 
