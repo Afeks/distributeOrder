@@ -114,9 +114,33 @@ async function loadPurchaseItems(
   for (const itemDoc of itemsSnapshot.docs) {
     const itemData = itemDoc.data();
     const itemId = itemData.itemId || itemDoc.id;
-    const quantity = itemData.quantity || 1;
     const selectedExtras = itemData.selectedExtras || [];
     const excludedIngredients = itemData.excludedIngredients || [];
+
+    const rawQuantity = itemData.quantity ?? itemData.count;
+    const entries = Array.isArray(itemData.entries) ? itemData.entries : [];
+
+    let quantity = 0;
+    if (rawQuantity !== undefined && rawQuantity !== null) {
+      const numericValue = Number(rawQuantity);
+      if (Number.isFinite(numericValue) && numericValue > 0) {
+        quantity = Math.floor(numericValue);
+      }
+    }
+
+    if (quantity <= 0 && entries.length > 0) {
+      quantity = entries.reduce((sum: number, entry: any) => {
+        const value = Number(entry?.quantity ?? 0);
+        if (!Number.isFinite(value) || value <= 0) {
+          return sum;
+        }
+        return sum + Math.floor(value);
+      }, 0);
+    }
+
+    if (quantity <= 0) {
+      quantity = 1;
+    }
 
     // Lade vollständige Item-Details aus der globalen Items-Collection
     const itemDetails = await getItemDetails(eventId, itemId);
@@ -127,6 +151,7 @@ async function loadPurchaseItems(
         items.push({
           ...itemDetails,
           id: itemId,
+          count: 1,
           selectedExtras: selectedExtras,
           excludedIngredients: excludedIngredients,
         });
