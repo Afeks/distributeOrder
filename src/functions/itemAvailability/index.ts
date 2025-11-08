@@ -347,7 +347,7 @@ async function notifySoldOutOrders(
       price: totalPrice,
       itemId,
       severity: 'error',
-      isRead: false,
+      status: 'created',
       action: 'refund',
     };
 

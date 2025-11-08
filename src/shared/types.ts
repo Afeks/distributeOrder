@@ -90,6 +90,6 @@ export interface NotificationPayload {
   itemId?: string;
   severity?: 'info' | 'warning' | 'error';
   action?: string;
-  isRead?: boolean;
+  status?: 'created' | 'in_progress' | 'resolved';
 }
 

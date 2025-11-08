@@ -23,7 +23,7 @@ export async function createNotification(
     itemId: payload.itemId || null,
     severity: payload.severity || 'info',
     action: payload.action || null,
-    isRead: payload.isRead ?? false,
+    status: payload.status || 'created',
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
