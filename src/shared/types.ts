@@ -87,7 +87,7 @@ export interface NotificationPayload {
   message: string;
   pointOfService?: string;
   price?: number;
-  itemId?: string;
+  itemIds?: string[];
   orderId?: string;
   severity?: 'info' | 'warning' | 'error';
   action?: string;

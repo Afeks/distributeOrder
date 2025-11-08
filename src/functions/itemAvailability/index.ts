@@ -425,17 +425,12 @@ async function notifySoldOutOrders(
       continue;
     }
 
-    const title =
-      itemNames.size === 1
-        ? `Artikel ${Array.from(itemNames)[0]} ist ausverkauft`
-        : `Artikel (${Array.from(itemNames).join(', ')}) sind ausverkauft`;
-
     const notificationPayload: NotificationPayload = {
-      title,
+      title: 'Storno: Artikel sind ausverkauft',
       message: 'Geld muss erstattet und Bestellung storniert werden.',
       pointOfService: servingPoint || undefined,
       price: totalPrice,
-      itemId: soldOutEntries[0]?.id ?? itemId,
+      itemIds: Array.from(new Set(soldOutEntries.map((entry) => entry.id))),
       orderId: orderDoc.id,
       severity: 'error',
       status: 'created',
