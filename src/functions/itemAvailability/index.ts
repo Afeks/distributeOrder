@@ -8,6 +8,42 @@ const COLLECTION_EVENTS = 'Events';
 const COLLECTION_POS = 'Points-of-Sale';
 const COLLECTION_ORDERS = 'Orders';
 const COLLECTION_ITEMS = 'Items';
+const globalAvailabilityCache: Map<string, boolean> = new Map();
+async function isItemGloballyAvailable(
+  eventId: string,
+  itemId: string,
+  cache?: Map<string, boolean>
+): Promise<boolean> {
+  if (cache && cache.has(itemId)) {
+    return cache.get(itemId)!;
+  }
+
+  const cacheKey = `${eventId}:${itemId}`;
+  if (!cache && globalAvailabilityCache.has(cacheKey)) {
+    return globalAvailabilityCache.get(cacheKey)!;
+  }
+
+  const docSnapshot = await admin
+    .firestore()
+    .collection(COLLECTION_EVENTS)
+    .doc(eventId)
+    .collection(COLLECTION_ITEMS)
+    .doc(itemId)
+    .get();
+
+  const data = docSnapshot.data();
+  const available =
+    !docSnapshot.exists ||
+    (data?.isAvailable !== undefined ? data.isAvailable !== false : true);
+
+  if (cache) {
+    cache.set(itemId, available);
+  } else {
+    globalAvailabilityCache.set(cacheKey, available);
+  }
+
+  return available;
+}
 
 interface CandidateStore {
   id: string;
@@ -169,10 +205,32 @@ async function transferItemsForOrder(
     .collection(COLLECTION_ITEMS)
     .get();
 
-  const itemsToTransfer = itemsSnapshot.docs.filter((itemDoc) => {
+  const availabilityCache: Map<string, boolean> = new Map();
+
+  const isItemTransferable = async (
+    itemData: FirebaseFirestore.DocumentData
+  ) => {
+    const id = itemData?.id;
+    if (!id) {
+      return false;
+    }
+    if (id === itemId) {
+      return true;
+    }
+
+    return await isItemGloballyAvailable(eventId, id, availabilityCache);
+  };
+
+  const itemsToTransfer: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+  for (const itemDoc of itemsSnapshot.docs) {
     const itemData = itemDoc.data();
-    return itemData?.id === itemId && extractCountFromItem(itemData) > 0;
-  });
+    if (extractCountFromItem(itemData) <= 0) {
+      continue;
+    }
+    if (await isItemTransferable(itemData)) {
+      itemsToTransfer.push(itemDoc);
+    }
+  }
 
   if (itemsToTransfer.length === 0) {
     return 0;
@@ -301,32 +359,6 @@ async function notifySoldOutOrders(
 
   const availabilityCache: Map<string, boolean> = new Map();
 
-  const ensureAvailability = async (id: string): Promise<boolean> => {
-    if (availabilityCache.has(id)) {
-      return availabilityCache.get(id)!;
-    }
-    if (id === itemId) {
-      availabilityCache.set(id, false);
-      return false;
-    }
-
-    const globalDoc = await db
-      .collection(COLLECTION_EVENTS)
-      .doc(eventId)
-      .collection(COLLECTION_ITEMS)
-      .doc(id)
-      .get();
-
-    const isAvailable =
-      !globalDoc.exists ||
-      (globalDoc.data()?.isAvailable !== undefined
-        ? globalDoc.data()?.isAvailable !== false
-        : true);
-
-    availabilityCache.set(id, isAvailable);
-    return isAvailable;
-  };
-
   for (const orderDoc of ordersSnapshot.docs) {
     const orderData = orderDoc.data();
     const itemsSnapshot = await orderDoc.ref
@@ -352,9 +384,10 @@ async function notifySoldOutOrders(
 
     await Promise.all(
       uniqueItemIds.map(async (id) => {
-        await ensureAvailability(id);
+        await isItemGloballyAvailable(eventId, id, availabilityCache);
       })
     );
+    availabilityCache.set(itemId, false);
 
     const servingPoint =
       orderData.servingPointName || orderData.servingPointLocation || null;
@@ -403,6 +436,7 @@ async function notifySoldOutOrders(
       pointOfService: servingPoint || undefined,
       price: totalPrice,
       itemId: soldOutEntries[0]?.id ?? itemId,
+      orderId: orderDoc.id,
       severity: 'error',
       status: 'created',
       action: 'refund',

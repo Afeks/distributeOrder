@@ -88,6 +88,7 @@ export interface NotificationPayload {
   pointOfService?: string;
   price?: number;
   itemId?: string;
+  orderId?: string;
   severity?: 'info' | 'warning' | 'error';
   action?: string;
   status?: 'created' | 'in_progress' | 'resolved';

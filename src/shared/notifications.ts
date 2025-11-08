@@ -15,24 +15,47 @@ export async function createNotification(
     throw new Error('Notification must contain at least title and message');
   }
 
-  const data = {
+  const notificationsRef = admin
+    .firestore()
+    .collection(COLLECTION_EVENTS)
+    .doc(eventId)
+    .collection(COLLECTION_NOTIFICATIONS);
+
+  const baseData = {
     title: payload.title,
     message: payload.message,
     pointOfService: payload.pointOfService || null,
     price: payload.price ?? null,
     itemId: payload.itemId || null,
+    orderId: payload.orderId || null,
     severity: payload.severity || 'info',
     action: payload.action || null,
     status: payload.status || 'created',
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
-  const docRef = await admin
-    .firestore()
-    .collection(COLLECTION_EVENTS)
-    .doc(eventId)
-    .collection(COLLECTION_NOTIFICATIONS)
-    .add(data);
+  if (payload.orderId) {
+    const existingSnapshot = await notificationsRef
+      .where('orderId', '==', payload.orderId)
+      .where('action', '==', baseData.action)
+      .where('status', 'in', ['created', 'in_progress'])
+      .limit(1)
+      .get();
+
+    if (!existingSnapshot.empty) {
+      const existingRef = existingSnapshot.docs[0].ref;
+      await existingRef.update({
+        ...baseData,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return existingRef.id;
+    }
+  }
+
+  const docRef = await notificationsRef.add({
+    ...baseData,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 
   return docRef.id;
 }
