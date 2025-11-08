@@ -14,3 +14,4 @@ if (!admin.apps.length) {
 export { distributeOrderFunction } from './functions/distributeOrder';
 export { onPurchaseCreated } from './functions/purchaseTrigger';
 export { generateMenuPDF } from './functions/generateMenuPDF';
+export { onPosItemAvailabilityChanged } from './functions/itemAvailability';
