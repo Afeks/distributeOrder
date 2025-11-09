@@ -22,12 +22,6 @@ function setGlobalAvailabilityCache(
   globalAvailabilityCache.set(getGlobalCacheKey(eventId, itemId), value);
 }
 
-function invalidateGlobalAvailabilityCache(
-  eventId: string,
-  itemId: string
-): void {
-  globalAvailabilityCache.delete(getGlobalCacheKey(eventId, itemId));
-}
 async function isItemGloballyAvailable(
   eventId: string,
   itemId: string,
