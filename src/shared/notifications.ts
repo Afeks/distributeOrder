@@ -28,6 +28,7 @@ export async function createNotification(
     price: payload.price ?? null,
     itemIds: Array.isArray(payload.itemIds) ? payload.itemIds : [],
     orderId: payload.orderId || null,
+    paymentMethod: payload.paymentMethod || null,
     severity: payload.severity || 'info',
     action: payload.action || null,
     status: payload.status || 'created',

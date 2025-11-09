@@ -16,3 +16,4 @@ export { onPurchaseCreated } from './functions/purchaseTrigger';
 export { generateMenuPDF } from './functions/generateMenuPDF';
 export { onPosItemAvailabilityChanged } from './functions/itemAvailability';
 export { onNotificationRefundUpdate } from './functions/refundHandler';
+export { onOrderCreated } from './functions/orderCreated';

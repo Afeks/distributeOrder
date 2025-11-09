@@ -89,6 +89,7 @@ export interface NotificationPayload {
   price?: number;
   itemIds?: string[];
   orderId?: string;
+  paymentMethod?: string;
   severity?: 'info' | 'warning' | 'error';
   action?: string;
   status?: 'created' | 'in_progress' | 'resolved';
