@@ -510,6 +510,38 @@ async function notifySoldOutOrders(
   }
 }
 
+async function markItemsForCanceling(
+  eventId: string,
+  posId: string,
+  itemId: string
+): Promise<void> {
+  const db = admin.firestore();
+  const ordersSnapshot = await db
+    .collection(COLLECTION_EVENTS)
+    .doc(eventId)
+    .collection(COLLECTION_POS)
+    .doc(posId)
+    .collection(COLLECTION_ORDERS)
+    .where('orderStatus', '==', 'open')
+    .get();
+
+  for (const orderDoc of ordersSnapshot.docs) {
+    const itemsSnapshot = await orderDoc.ref
+      .collection(COLLECTION_ITEMS)
+      .where('id', '==', itemId)
+      .get();
+
+    for (const itemDoc of itemsSnapshot.docs) {
+      await itemDoc.ref.set(
+        {
+          status: 'marked_for_canceling',
+        },
+        { merge: true }
+      );
+    }
+  }
+}
+
 export const onPosItemAvailabilityChanged = functions
   .region('europe-west1')
   .firestore.document(
@@ -578,6 +610,7 @@ export const onPosItemAvailabilityChanged = functions
       );
 
       await notifySoldOutOrders(eventId, posId, itemId);
+      await markItemsForCanceling(eventId, posId, itemId);
       await syncGlobalItemAvailability(eventId, itemId);
 
       return null;
