@@ -1,3 +1,28 @@
+async function loadOrderItemIds(
+  eventId: string,
+  orderId: string
+): Promise<string[]> {
+  const itemsSnapshot = await admin
+    .firestore()
+    .collection(COLLECTION_EVENTS)
+    .doc(eventId)
+    .collection(COLLECTION_ORDERS)
+    .doc(orderId)
+    .collection('Items')
+    .get();
+
+  const itemIds: string[] = [];
+
+  itemsSnapshot.forEach((doc) => {
+    const data = doc.data();
+    const id = data.itemId || data.id || doc.id;
+    if (id) {
+      itemIds.push(id);
+    }
+  });
+
+  return itemIds;
+}
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { createNotification } from '../../shared/notifications';
@@ -63,6 +88,7 @@ export const onOrderCreated = functions
       undefined;
 
     const price = Number(data.totalPrice ?? snapshot.get('totalPrice'));
+    const itemIds = await loadOrderItemIds(eventId, orderId);
 
     await createNotification(eventId, {
       title: 'Barzahlung erforderlich',
@@ -70,6 +96,7 @@ export const onOrderCreated = functions
       pointOfService,
       price: Number.isFinite(price) ? price : undefined,
       orderId,
+      itemIds,
       paymentMethod: paymentMethod || 'cash',
       severity: 'warning',
       action: 'collect_cash',
