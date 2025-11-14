@@ -27,7 +27,7 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import { createNotification } from '../../shared/notifications';
 
-const COLLECTION_EVENTS = 'Events';
+const COLLECTION_EVENTS = 'PosEvents';
 const COLLECTION_ORDERS = 'Orders';
 
 interface OrderData {

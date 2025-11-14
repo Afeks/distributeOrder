@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 import { NotificationPayload } from './types';
 
-const COLLECTION_EVENTS = 'Events';
+const COLLECTION_EVENTS = 'PosEvents';
 const COLLECTION_NOTIFICATIONS = 'Notifications';
 
 export async function createNotification(

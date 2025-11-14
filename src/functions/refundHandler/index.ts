@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
-const COLLECTION_EVENTS = 'Events';
+const COLLECTION_EVENTS = 'PosEvents';
 const COLLECTION_NOTIFICATIONS = 'Notifications';
 const COLLECTION_ORDERS = 'Orders';
 const COLLECTION_POS = 'Points-of-Sale';

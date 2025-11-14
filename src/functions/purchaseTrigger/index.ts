@@ -12,7 +12,7 @@ import {
   ServingPoint,
 } from '../../shared/types';
 
-const COLLECTION_EVENTS = 'Events';
+const COLLECTION_EVENTS = 'PosEvents';
 const COLLECTION_ORDERS = 'Orders';
 const COLLECTION_ITEMS = 'Items';
 const COLLECTION_SERVING_POINTS = 'Serving-Points';

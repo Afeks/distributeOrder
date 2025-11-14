@@ -57,7 +57,7 @@ function getItemQuantity(item: Item): number {
 }
 
 
-const COLLECTION_EVENTS = 'Events';
+const COLLECTION_EVENTS = 'PosEvents';
 const COLLECTION_POS = 'Points-of-Sale';
 const COLLECTION_ORDERS = 'Orders';
 const COLLECTION_ITEMS = 'Items';
