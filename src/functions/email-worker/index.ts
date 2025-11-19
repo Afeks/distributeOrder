@@ -51,6 +51,10 @@ interface SendEmailParams {
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 
+const getAssociationIdFromDocRef = (
+  docRef: FirebaseFirestore.DocumentReference
+): string | undefined => docRef.parent?.parent?.id;
+
 const loadAssociationEmailSettings = async (
   associationId?: string
 ): Promise<AssociationEmailSettings> => {
@@ -166,7 +170,8 @@ const markAsFailed = async (
 };
 
 const handleEmailDocument = async (
-  docRef: FirebaseFirestore.DocumentReference
+  docRef: FirebaseFirestore.DocumentReference,
+  providedAssociationId?: string
 ): Promise<void> => {
   let emailData: EmailQueueDocument | undefined;
   let currentAttempts = 0;
@@ -205,9 +210,16 @@ const handleEmailDocument = async (
   }
 
   try {
-    const associationConfig = await loadAssociationEmailSettings(
-      emailData.associationId
-    );
+    const associationId =
+      providedAssociationId ??
+      emailData.associationId ??
+      getAssociationIdFromDocRef(docRef);
+
+    if (!associationId) {
+      throw new Error('Association ID konnte nicht ermittelt werden.');
+    }
+
+    const associationConfig = await loadAssociationEmailSettings(associationId);
     const transporter = buildTransporter(associationConfig);
 
     const to = emailData.to?.trim();
@@ -251,10 +263,13 @@ const handleEmailDocument = async (
 
 export const onEmailQueued = functions
   .region('europe-west1')
-  .firestore.document(`${EMAIL_QUEUE_COLLECTION}/{emailId}`)
-  .onCreate(async (snap) => {
+  .firestore.document(
+    `${ASSOCIATIONS_COLLECTION}/{associationId}/${EMAIL_QUEUE_COLLECTION}/{emailId}`
+  )
+  .onCreate(async (snap, context) => {
     try {
-      await handleEmailDocument(snap.ref);
+      const { associationId } = context.params as { associationId: string };
+      await handleEmailDocument(snap.ref, associationId);
     } catch (error) {
       functions.logger.warn('E-Mail konnte nicht sofort verarbeitet werden', {
         docId: snap.id,
@@ -269,7 +284,7 @@ export const processEmailQueue = functions
   .timeZone('Europe/Berlin')
   .onRun(async () => {
     const batch = await db
-      .collection(EMAIL_QUEUE_COLLECTION)
+      .collectionGroup(EMAIL_QUEUE_COLLECTION)
       .where('status', 'in', ['pending', 'error'])
       .orderBy('createdAt', 'asc')
       .limit(20)
