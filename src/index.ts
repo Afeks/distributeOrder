@@ -17,3 +17,7 @@ export { generateMenuPDF } from './functions/generateMenuPDF';
 export { onPosItemAvailabilityChanged } from './functions/itemAvailability';
 export { onNotificationRefundUpdate } from './functions/refundHandler';
 export { onOrderCreated } from './functions/orderCreated';
+export {
+  onEmailQueued,
+  processEmailQueue,
+} from './functions/email-worker';
