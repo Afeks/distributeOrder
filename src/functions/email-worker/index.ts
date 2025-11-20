@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import nodemailer, { Transporter } from 'nodemailer';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from 'pdf-lib';
 import QRCode from 'qrcode';
 
 const EMAIL_QUEUE_COLLECTION = 'emailQueue';
@@ -21,6 +21,7 @@ interface TicketContext {
   associationName?: string;
   ticketTemplatePdfUrl?: string;
   ticketTemplateQrArea?: QrArea | null;
+  ticketTemplateInfoArea?: QrArea | null;
 }
 
 interface EmailQueueDocument {
@@ -59,6 +60,7 @@ interface TicketDesignSettings {
   templatePdfUrl?: string | null;
   templateImageUrl?: string | null;
   qrArea?: QrArea | null;
+  infoArea?: QrArea | null;
 }
 
 interface QrArea {
@@ -93,18 +95,52 @@ const getAssociationIdFromDocRef = (
   docRef: FirebaseFirestore.DocumentReference
 ): string | undefined => docRef.parent?.parent?.id;
 
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(Math.max(value, min), max);
+
+// Normalisiert allgemeine Bereichs-Koordinaten (0-1 zu Pixel)
+const normalizeTemplateArea = (
+  area: QrArea | null | undefined,
+  pageWidth: number,
+  pageHeight: number,
+  fallback?: QrArea
+): QrArea | null => {
+  const source = area ?? fallback;
+  if (!source) {
+    return null;
+  }
+  const x = clamp(source.x ?? 0, 0, 1);
+  const y = clamp(source.y ?? 0, 0, 1);
+  const width = clamp(source.width ?? 0.25, 0.02, 1);
+  const height = clamp(source.height ?? 0.25, 0.02, 1);
+  return {
+    x: x * pageWidth,
+    y: y * pageHeight,
+    width: width * pageWidth,
+    height: height * pageHeight,
+  };
+};
+
 // Normalisiert QR-Bereich-Koordinaten (0-1 zu Pixel)
 const normalizeQrArea = (
-  qrArea: QrArea,
+  qrArea: QrArea | null | undefined,
   pageWidth: number,
   pageHeight: number
 ): QrArea => {
-  return {
-    x: (qrArea.x || 0) * pageWidth,
-    y: (qrArea.y || 0) * pageHeight,
-    width: (qrArea.width || 0.25) * pageWidth,
-    height: (qrArea.height || 0.25) * pageHeight,
-  };
+  const normalized = normalizeTemplateArea(
+    qrArea,
+    pageWidth,
+    pageHeight,
+    DEFAULT_QR_AREA
+  );
+  return (
+    normalized || {
+      x: DEFAULT_QR_AREA.x * pageWidth,
+      y: DEFAULT_QR_AREA.y * pageHeight,
+      width: DEFAULT_QR_AREA.width * pageWidth,
+      height: DEFAULT_QR_AREA.height * pageHeight,
+    }
+  );
 };
 
 const toValidDate = (
@@ -159,6 +195,87 @@ const sanitizeFileSegment = (str: string | undefined): string => {
   return String(str || '').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50);
 };
 
+const wrapLine = (
+  text: string,
+  font: PDFFont,
+  fontSize: number,
+  maxWidth: number
+): string[] => {
+  if (!text) {
+    return [];
+  }
+  if (maxWidth <= 0) {
+    return [text];
+  }
+
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+
+  words.forEach((word) => {
+    const candidate = current ? `${current} ${word}` : word;
+    const width = font.widthOfTextAtSize(candidate, fontSize);
+    if (width <= maxWidth || !current) {
+      current = candidate;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  });
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
+};
+
+const drawTicketInfoText = ({
+  page,
+  area,
+  lines,
+  font,
+  fontSize = 12,
+  lineSpacing = 4,
+  padding = 8,
+}: {
+  page: PDFPage;
+  area: QrArea;
+  lines: string[];
+  font: PDFFont;
+  fontSize?: number;
+  lineSpacing?: number;
+  padding?: number;
+}) => {
+  if (!lines.length || !area) {
+    return;
+  }
+
+  const usableWidth = Math.max(area.width - padding * 2, 0);
+  const startX = area.x + padding;
+  const pageHeight = page.getHeight();
+  const topY = pageHeight - area.y - padding;
+  const bottomLimit = pageHeight - (area.y + area.height) + padding;
+  let cursorY = topY - fontSize;
+
+  for (const line of lines) {
+    const wrappedLines = wrapLine(line, font, fontSize, usableWidth);
+    for (const segment of wrappedLines) {
+      if (cursorY < bottomLimit) {
+        return;
+      }
+      page.drawText(segment, {
+        x: startX,
+        y: cursorY,
+        size: fontSize,
+        font,
+        color: rgb(0, 0, 0),
+      });
+      cursorY -= fontSize + lineSpacing;
+    }
+  }
+};
+
 // Lädt Ticket-Design-Einstellungen aus dem Ticketing-Modul
 const loadTicketDesignSettings = async (
   associationId: string
@@ -180,6 +297,7 @@ const loadTicketDesignSettings = async (
       templatePdfUrl: data?.ticketEmailTemplatePdfUrl || null,
       templateImageUrl: data?.ticketEmailTemplateImageUrl || null,
       qrArea: data?.ticketEmailQrArea || null,
+      infoArea: data?.ticketEmailInfoArea || null,
     };
   } catch (err) {
     functions.logger.warn(
@@ -251,6 +369,7 @@ const generateQRCodeBuffer = async (
 const generateTicketPdf = async ({
   templateAsset,
   qrArea,
+  infoArea,
   associationName,
   ticketName,
   eventDate,
@@ -259,6 +378,7 @@ const generateTicketPdf = async ({
 }: {
   templateAsset: TemplateAsset | null;
   qrArea: QrArea | null;
+  infoArea: QrArea | null;
   associationName: string;
   ticketName: string;
   eventDate?: string | Date | FirebaseFirestore.Timestamp;
@@ -344,34 +464,40 @@ const generateTicketPdf = async ({
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontSize = 12;
   const textColor = rgb(0, 0, 0);
-  let yPos = pageHeight - 50;
+  const normalizedInfoArea = normalizeTemplateArea(
+    infoArea,
+    pageWidth,
+    pageHeight
+  );
+  const infoLines = [ticketName || '', formatEventDateText(eventDate), seatLabel || '']
+    .map((line) => line?.trim())
+    .filter((line) => !!line);
+  const hasInfoArea = !!normalizedInfoArea && infoLines.length > 0;
 
-  if (associationName) {
-    page.drawText(associationName, {
-      x: 50,
-      y: yPos,
-      size: fontSize + 4,
+  if (hasInfoArea && normalizedInfoArea) {
+    drawTicketInfoText({
+      page,
+      area: normalizedInfoArea,
+      lines: infoLines,
       font,
-      color: textColor,
+      fontSize,
     });
-    yPos -= 30;
-  }
+  } else {
+    let yPos = pageHeight - 50;
 
-  if (ticketName) {
-    page.drawText(`Ticket: ${ticketName}`, {
-      x: 50,
-      y: yPos,
-      size: fontSize,
-      font,
-      color: textColor,
-    });
-    yPos -= 20;
-  }
+    if (associationName) {
+      page.drawText(associationName, {
+        x: 50,
+        y: yPos,
+        size: fontSize + 4,
+        font,
+        color: textColor,
+      });
+      yPos -= 30;
+    }
 
-  if (eventDate) {
-    const dateText = formatEventDateText(eventDate);
-    if (dateText) {
-      page.drawText(`Datum: ${dateText}`, {
+    if (ticketName) {
+      page.drawText(`Ticket: ${ticketName}`, {
         x: 50,
         y: yPos,
         size: fontSize,
@@ -380,23 +506,47 @@ const generateTicketPdf = async ({
       });
       yPos -= 20;
     }
+
+    if (eventDate) {
+      const dateText = formatEventDateText(eventDate);
+      if (dateText) {
+        page.drawText(`Datum: ${dateText}`, {
+          x: 50,
+          y: yPos,
+          size: fontSize,
+          font,
+          color: textColor,
+        });
+        yPos -= 20;
+      }
+    }
+
+    if (seatLabel) {
+      page.drawText(`Platz: ${seatLabel}`, {
+        x: 50,
+        y: yPos,
+        size: fontSize,
+        font,
+        color: textColor,
+      });
+      yPos -= 20;
+    }
+
+    if (orderId) {
+      page.drawText(`Bestellnummer: ${orderId}`, {
+        x: 50,
+        y: yPos,
+        size: fontSize - 2,
+        font,
+        color: textColor,
+      });
+    }
   }
 
-  if (seatLabel) {
-    page.drawText(`Platz: ${seatLabel}`, {
-      x: 50,
-      y: yPos,
-      size: fontSize,
-      font,
-      color: textColor,
-    });
-    yPos -= 20;
-  }
-
-  if (orderId) {
+  if (orderId && hasInfoArea) {
     page.drawText(`Bestellnummer: ${orderId}`, {
       x: 50,
-      y: yPos,
+      y: 36,
       size: fontSize - 2,
       font,
       color: textColor,
@@ -435,6 +585,7 @@ const buildTicketAttachments = async (
     associationName,
     ticketTemplatePdfUrl,
     ticketTemplateQrArea,
+    ticketTemplateInfoArea,
   } = emailData.context;
 
   functions.logger.info('buildTicketAttachments: Context-Daten', {
@@ -456,6 +607,7 @@ const buildTicketAttachments = async (
   }
 
   let qrArea = ticketTemplateQrArea || null;
+  let infoArea = ticketTemplateInfoArea || null;
   let templateUrl = ticketTemplatePdfUrl || null;
   let designSettings: TicketDesignSettings | null = null;
 
@@ -469,6 +621,9 @@ const buildTicketAttachments = async (
     }
     if (!qrArea) {
       qrArea = designSettings.qrArea || null;
+    }
+    if (!infoArea) {
+      infoArea = designSettings.infoArea || null;
     }
   }
 
@@ -504,6 +659,7 @@ const buildTicketAttachments = async (
       const pdfBuffer = await generateTicketPdf({
         templateAsset,
         qrArea,
+        infoArea,
         associationName: associationName || 'Verein',
         ticketName,
         eventDate,
