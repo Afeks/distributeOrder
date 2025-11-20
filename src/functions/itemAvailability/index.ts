@@ -482,7 +482,6 @@ async function notifySoldOutOrders(
     if (totalPrice <= 0 || itemNames.size === 0) {
       continue;
     }
-
     
     const itemIds = Array.from(
       new Set(soldOutEntries.map((entry) => entry.id))
